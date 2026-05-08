@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPL SIP — Impact Simulation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --blue:    #C55A00; --blue-l:  #FEF0E6; --blue-t:  #F5B680;
+    --purple:  #4527A0; --purple-l:#EDE7F6; --purple-t:#B39DDB;
+    --teal:    #1B5E20; --teal-l:  #E8F5E9; --teal-t:  #81C784;
+    --amber:   #B71C1C; --amber-l: #FFEBEE; --amber-t: #EF9A9A;
+    --coral:   #01579B; --coral-l: #E3F2FD; --coral-t: #81D4FA;
+    --green:   #880E4F; --green-l: #FCE4EC; --green-t: #F48FB1;
+    --pink:    #004D40; --pink-l:  #E0F2F1; --pink-t:  #80CBC4;
+    --gray:    #37474F; --gray-l:  #ECEFF1; --gray-t:  #B0BEC5;
+    --red:     #B71C1C; --red-l:   #FFEBEE;
+    --success: #1B5E20; --success-l:#E8F5E9;
+    --navy:    #1A2B4A;
+    --white:   #FFFFFF;
+    --bg:      #F7F6F2;
+    --border:  #E2E0D8;
+    --text:    #1A1A18;
+    --muted:   #6B6A65;
+    --font:    'DM Sans', sans-serif;
+    --mono:    'DM Mono', monospace;
+    --radius:  10px;
+    --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%; width: 100%;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ─────────────────────────────────────────── */
+  .topbar {
+    background: var(--navy);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-logo {
+    background: var(--blue);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 5px;
+    letter-spacing: 0.05em;
+  }
+  .topbar-title { font-size: 13px; font-weight: 500; opacity: 0.95; }
+  .topbar-sub   { font-size: 11px; opacity: 0.55; margin-left: 4px; }
+  .topbar-badge {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    font-size: 11px;
+    padding: 3px 10px;
+    opacity: 0.85;
+  }
+
+  /* ── MAIN LAYOUT ─────────────────────────────────────── */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  .body {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── LEFT PANEL — INPUTS ─────────────────────────────── */
+  .panel-left {
+    background: #fff;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-left-head {
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-left-head h2 { font-size: 12px; font-weight: 600; color: var(--navy); letter-spacing: 0.04em; text-transform: uppercase; }
+  .panel-left-head p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .inputs-scroll { overflow-y: auto; flex: 1; padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .inputs-scroll::-webkit-scrollbar { width: 4px; }
+  .inputs-scroll::-webkit-scrollbar-track { background: transparent; }
+  .inputs-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── INPUT CARD ──────────────────────────────────────── */
+  .icard {
+    border-radius: var(--radius);
+    padding: 10px 12px 11px;
+    border: 1.5px solid transparent;
+    transition: transform 0.1s, box-shadow 0.1s;
+    cursor: default;
+    user-select: none;
+  }
+  .icard:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.07); }
+  .icard-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .icard-label { font-size: 11px; font-weight: 600; line-height: 1.3; }
+  .icard-val { font-size: 16px; font-weight: 600; font-family: var(--mono); white-space: nowrap; margin-left: 8px; }
+  .icard-desc { font-size: 10px; opacity: 0.7; margin-bottom: 7px; line-height: 1.3; }
+
+  input[type=range] {
+    width: 100%; height: 5px; border-radius: 3px;
+    outline: none; border: none; cursor: pointer;
+    -webkit-appearance: none; appearance: none; background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 17px; height: 17px;
+    border-radius: 50%; margin-top: -6px; border: 2.5px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2); cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+  .ic-blue   { background: var(--blue-l);   border-color: var(--blue-t);   }
+  .ic-purple { background: var(--purple-l); border-color: var(--purple-t); }
+  .ic-teal   { background: var(--teal-l);   border-color: var(--teal-t);   }
+  .ic-amber  { background: var(--amber-l);  border-color: var(--amber-t);  }
+  .ic-coral  { background: var(--coral-l);  border-color: var(--coral-t);  }
+  .ic-green  { background: var(--green-l);  border-color: var(--green-t);  }
+  .ic-pink   { background: var(--pink-l);   border-color: var(--pink-t);   }
+  .ic-gray   { background: var(--gray-l);   border-color: var(--gray-t);   }
+
+  .ic-blue   .icard-label, .ic-blue   .icard-val { color: var(--blue); }
+  .ic-purple .icard-label, .ic-purple .icard-val { color: var(--purple); }
+  .ic-teal   .icard-label, .ic-teal   .icard-val { color: var(--teal); }
+  .ic-amber  .icard-label, .ic-amber  .icard-val { color: var(--amber); }
+  .ic-coral  .icard-label, .ic-coral  .icard-val { color: var(--coral); }
+  .ic-green  .icard-label, .ic-green  .icard-val { color: var(--green); }
+  .ic-pink   .icard-label, .ic-pink   .icard-val { color: var(--pink); }
+  .ic-gray   .icard-label, .ic-gray   .icard-val { color: var(--gray); }
+
+  .ic-blue   .icard-desc { color: var(--blue); }
+  .ic-purple .icard-desc { color: var(--purple); }
+  .ic-teal   .icard-desc { color: var(--teal); }
+  .ic-amber  .icard-desc { color: var(--amber); }
+  .ic-coral  .icard-desc { color: var(--coral); }
+  .ic-green  .icard-desc { color: var(--green); }
+  .ic-pink   .icard-desc { color: var(--pink); }
+  .ic-gray   .icard-desc { color: var(--gray); }
+
+  .ic-blue   input[type=range]::-webkit-slider-runnable-track { background: var(--blue-t); }
+  .ic-purple input[type=range]::-webkit-slider-runnable-track { background: var(--purple-t); }
+  .ic-teal   input[type=range]::-webkit-slider-runnable-track { background: var(--teal-t); }
+  .ic-amber  input[type=range]::-webkit-slider-runnable-track { background: var(--amber-t); }
+  .ic-coral  input[type=range]::-webkit-slider-runnable-track { background: var(--coral-t); }
+  .ic-green  input[type=range]::-webkit-slider-runnable-track { background: var(--green-t); }
+  .ic-pink   input[type=range]::-webkit-slider-runnable-track { background: var(--pink-t); }
+  .ic-gray   input[type=range]::-webkit-slider-runnable-track { background: var(--gray-t); }
+
+  .ic-blue   input[type=range]::-webkit-slider-thumb { background: var(--blue); }
+  .ic-purple input[type=range]::-webkit-slider-thumb { background: var(--purple); }
+  .ic-teal   input[type=range]::-webkit-slider-thumb { background: var(--teal); }
+  .ic-amber  input[type=range]::-webkit-slider-thumb { background: var(--amber); }
+  .ic-coral  input[type=range]::-webkit-slider-thumb { background: var(--coral); }
+  .ic-green  input[type=range]::-webkit-slider-thumb { background: var(--green); }
+  .ic-pink   input[type=range]::-webkit-slider-thumb { background: var(--pink); }
+  .ic-gray   input[type=range]::-webkit-slider-thumb { background: var(--gray); }
+
+  /* ── RIGHT PANEL — OUTPUTS ───────────────────────────── */
+  .panel-right {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* ── METRIC STRIP ────────────────────────────────────── */
+  .metric-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .metric {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    border-left: 3px solid transparent;
+  }
+  .metric-label { font-size: 10px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .metric-val { font-size: 17px; font-weight: 600; font-family: var(--mono); line-height: 1; color: var(--navy); }
+  .metric-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .m-good  { border-left-color: var(--teal); }
+  .m-good  .metric-val { color: var(--teal); }
+  .m-warn  { border-left-color: var(--red); }
+  .m-warn  .metric-val { color: var(--red); }
+  .m-info  { border-left-color: var(--blue); }
+  .m-info  .metric-val { color: var(--blue); }
+  .m-amber { border-left-color: var(--amber); }
+  .m-amber .metric-val { color: var(--amber); }
+
+  /* ── CHARTS AREA ─────────────────────────────────────── */
+  .charts-area {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    padding: 8px 14px;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .chart-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .chart-card.span2 { grid-column: span 2; }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-shrink: 0; }
+  .chart-title { font-size: 11px; font-weight: 600; color: var(--navy); text-transform: uppercase; letter-spacing: 0.04em; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .chart-body { flex: 1; position: relative; min-height: 0; }
+  .chart-body canvas { position: absolute; inset: 0; }
+
+  /* ── INSIGHT BAR ─────────────────────────────────────── */
+  .insight-bar {
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 7px 14px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .insight-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .insights-list { display: flex; gap: 8px; flex-wrap: nowrap; overflow: hidden; }
+  .ins-pill {
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .ins-good  { background: var(--success-l); color: var(--success); }
+  .ins-warn  { background: var(--red-l);     color: var(--red);     }
+  .ins-info  { background: var(--blue-l);    color: var(--blue);    }
+
+  /* ── BASELINE TAG ────────────────────────────────────── */
+  .baseline-row {
+    display: flex; gap: 6px; padding: 7px 16px 0; flex-shrink: 0; flex-wrap: wrap;
+  }
+  .bline-tag {
+    background: #FEF3E2; border: 1px solid var(--amber-t);
+    border-radius: 20px; padding: 2px 9px;
+    font-size: 10px; color: var(--amber); font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">CPL</span>
+      <span class="topbar-title">Sampling Intelligence Platform</span>
+      <span class="topbar-sub">— Impact Simulation</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span class="topbar-badge">Flexible Packaging Division</span>
+      <span class="topbar-badge">Baseline: Jul–Dec 2025 SAP Data</span>
+      <span class="topbar-badge">Group 5 · LUMS TME 6201</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- LEFT PANEL -->
+    <div class="panel-left">
+      <div class="panel-left-head">
+        <h2>Adjust inputs</h2>
+        <p>Move sliders to model different scenarios</p>
+      </div>
+      <div class="inputs-scroll">
+
+        <div class="icard ic-blue">
+          <div class="icard-top">
+            <span class="icard-label">Total Investment (CapEx)</span>
+            <span class="icard-val" id="v-capex">Rs. 16.5M</span>
+          </div>
+          <div class="icard-desc">One-time cost: SAP module + CRM + portal + GMG</div>
+          <input type="range" id="s-capex" min="13200000" max="22200000" step="100000" value="16500000">
+        </div>
+
+        <div class="icard ic-purple">
+          <div class="icard-top">
+            <span class="icard-label">Client Portal Adoption Rate</span>
+            <span class="icard-val" id="v-adoption">60%</span>
+          </div>
+          <div class="icard-desc">% of clients actively using the digital portal</div>
+          <input type="range" id="s-adoption" min="10" max="100" step="5" value="60">
+        </div>
+
+        <div class="icard ic-teal">
+          <div class="icard-top">
+            <span class="icard-label">Proofing Cycle Reduction</span>
+            <span class="icard-val" id="v-proof">25%</span>
+          </div>
+          <div class="icard-desc">Fewer repeat proofing runs via GMG digital approval</div>
+          <input type="range" id="s-proof" min="5" max="45" step="1" value="25">
+        </div>
+
+        <div class="icard ic-amber">
+          <div class="icard-top">
+            <span class="icard-label">Waste Material Reduction</span>
+            <span class="icard-val" id="v-waste">30%</span>
+          </div>
+          <div class="icard-desc">Less material wasted (baseline: 29,848 KG/year)</div>
+          <input type="range" id="s-waste" min="5" max="50" step="1" value="30">
+        </div>
+
+        <div class="icard ic-coral">
+          <div class="icard-top">
+            <span class="icard-label">Cycle Time Reduction</span>
+            <span class="icard-val" id="v-cycle">20 days</span>
+          </div>
+          <div class="icard-desc">Days saved from the 52-day average cycle</div>
+          <input type="range" id="s-cycle" min="5" max="35" step="1" value="20">
+        </div>
+
+        <div class="icard ic-green">
+          <div class="icard-top">
+            <span class="icard-label">Monthly Volume Growth</span>
+            <span class="icard-val" id="v-growth">0%</span>
+          </div>
+          <div class="icard-desc">FPD growing at 50% CAGR — adjust for projection</div>
+          <input type="range" id="s-growth" min="-20" max="50" step="5" value="0">
+        </div>
+
+        <div class="icard ic-pink">
+          <div class="icard-top">
+            <span class="icard-label">Shade Card Reuse Saving</span>
+            <span class="icard-val" id="v-shade">15%</span>
+          </div>
+          <div class="icard-desc">LSD shade card cost recovered via digital repository</div>
+          <input type="range" id="s-shade" min="5" max="30" step="1" value="15">
+        </div>
+
+        <div class="icard ic-gray">
+          <div class="icard-top">
+            <span class="icard-label">Discount Rate (for NPV)</span>
+            <span class="icard-val" id="v-discount">15%</span>
+          </div>
+          <div class="icard-desc">CFO threshold: ROI must be under 5 years</div>
+          <input type="range" id="s-discount" min="8" max="25" step="1" value="15">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel-right">
+
+      <!-- BASELINE TAGS -->
+      <div class="baseline-row">
+        <span class="bline-tag">Baseline: Rs. 11M/month avg spend</span>
+        <span class="bline-tag">Proofing: 56.8% of cost</span>
+        <span class="bline-tag">Waste: 29,848 KG / 6 months</span>
+        <span class="bline-tag">Cycle: 52 days avg</span>
+        <span class="bline-tag">130 clients · 251 orders</span>
+      </div>
+
+      <!-- METRIC STRIP -->
+      <div class="metric-strip">
+        <div class="metric m-good">
+          <div class="metric-label">Monthly Saving</div>
+          <div class="metric-val" id="o-monthly">—</div>
+          <div class="metric-sub">vs Rs. 11M baseline</div>
+        </div>
+        <div class="metric m-good">
+          <div class="metric-label">Annual Saving</div>
+          <div class="metric-val" id="o-annual">—</div>
+          <div class="metric-sub">Year 1 post go-live</div>
+        </div>
+        <div class="metric m-info">
+          <div class="metric-label">Payback Period</div>
+          <div class="metric-val" id="o-payback">—</div>
+          <div class="metric-sub">CFO threshold: &lt;5 yrs</div>
+        </div>
+        <div class="metric m-good" id="m-npv">
+          <div class="metric-label">5-Year NPV</div>
+          <div class="metric-val" id="o-npv">—</div>
+          <div class="metric-sub" id="o-npv-sub">—</div>
+        </div>
+        <div class="metric m-info">
+          <div class="metric-label">New Cycle Time</div>
+          <div class="metric-val" id="o-cycle">—</div>
+          <div class="metric-sub">From 52-day baseline</div>
+        </div>
+        <div class="metric m-good">
+          <div class="metric-label">Waste Saved / Year</div>
+          <div class="metric-val" id="o-waste">—</div>
+          <div class="metric-sub">KG recovered annually</div>
+        </div>
+      </div>
+
+      <!-- CHARTS -->
+      <div class="charts-area">
+
+        <!-- Monthly cost before vs after — full width -->
+        <div class="chart-card span2">
+          <div class="chart-head">
+            <span class="chart-title">Monthly Sampling Cost — Before vs. After SIP</span>
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot" style="background:#B71C1C;"></span>Before SIP (baseline)</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#1B5E20;"></span>After SIP (projected, with 3-month ramp-up)</span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="c-monthly" role="img" aria-label="Bar chart showing monthly sampling cost before and after SIP over 12 months">Monthly cost comparison before and after SIP implementation.</canvas>
+          </div>
+        </div>
+
+        <!-- Saving breakdown -->
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">Annual Saving — By Source</span>
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot" style="background:#C55A00;"></span>Proofing</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#4527A0;"></span>Waste</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#880E4F;"></span>Shade card</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#01579B;"></span>Cycle</span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="c-breakdown" role="img" aria-label="Doughnut chart of annual savings by source">Annual savings breakdown by lever.</canvas>
+          </div>
+        </div>
+
+        <!-- 5-year NPV -->
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">5-Year Cumulative NPV (Rs. M)</span>
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot" style="background:#01579B;"></span>Cumulative NPV</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#B71C1C; border-radius:50%;"></span>Break-even</span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="c-npv" role="img" aria-label="Line chart showing cumulative 5-year NPV trajectory">5-year cumulative NPV trajectory.</canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- INSIGHT BAR -->
+      <div class="insight-bar">
+        <span class="insight-label">Insights</span>
+        <div class="insights-list" id="insights-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE_MONTHLY   = 11000000;
+const BASE_WASTE_KG  = 59696;
+const BASE_WASTE_CPK = 455;
+const PROOFING_SHARE = 0.568;
+const LSD_SHARE      = 0.284;
+const ANNUAL_OPEX    = 3000000;
+const MONTHS = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12'];
+
+const fmtM  = v => 'Rs. ' + (Math.abs(v)/1e6).toFixed(1) + 'M';
+const fmtMs = v => (v >= 0 ? '+' : '-') + 'Rs. ' + (Math.abs(v)/1e6).toFixed(1) + 'M';
+
+function getVals() {
+  return {
+    capex:    +document.getElementById('s-capex').value,
+    adoption: +document.getElementById('s-adoption').value / 100,
+    proof:    +document.getElementById('s-proof').value / 100,
+    waste:    +document.getElementById('s-waste').value / 100,
+    cycle:    +document.getElementById('s-cycle').value,
+    growth:   +document.getElementById('s-growth').value / 100,
+    shade:    +document.getElementById('s-shade').value / 100,
+    discount: +document.getElementById('s-discount').value / 100,
+  };
+}
+
+function compute(v) {
+  const as = 0.5 + v.adoption * 0.5;
+  const proofSav  = BASE_MONTHLY * PROOFING_SHARE * v.proof * as;
+  const wasteSav  = BASE_WASTE_KG * BASE_WASTE_CPK * v.waste / 12;
+  const shadeSav  = BASE_MONTHLY * LSD_SHARE * v.shade * as;
+  const cycleEff  = BASE_MONTHLY * 0.05 * (v.cycle / 35) * as;
+  const monthlySav = proofSav + wasteSav + shadeSav + cycleEff;
+  const adjBase    = BASE_MONTHLY * (1 + v.growth);
+  const annualSav  = monthlySav * 12;
+  const paybackMo  = v.capex / monthlySav;
+  let npv = -v.capex;
+  for (let yr = 1; yr <= 5; yr++) npv += (annualSav - ANNUAL_OPEX) / Math.pow(1 + v.discount, yr);
+  return {
+    monthlySav, adjBase, annualSav, paybackMo, npv,
+    wasteKgSaved: BASE_WASTE_KG * v.waste,
+    proofSav, wasteSav, shadeSav, cycleEff,
+    newCycle: Math.max(52 - v.cycle, 15),
+  };
+}
+
+const gc = 'rgba(0,0,0,0.05)';
+const tc = '#9B9A94';
+
+let cMonthly, cBreak, cNPV;
+
+function buildCharts() {
+  const v = getVals(); const c = compute(v);
+  const before = Array(12).fill(Math.round(c.adjBase));
+  const after  = MONTHS.map((_,i) => i < 3 ? Math.round(c.adjBase) : Math.round(c.adjBase - c.monthlySav * Math.min(1,(i-2)/4)));
+
+  cMonthly = new Chart(document.getElementById('c-monthly'), {
+    type: 'bar',
+    data: { labels: MONTHS, datasets: [
+      { label: 'Before SIP', data: before, backgroundColor: '#B71C1C', borderRadius: 3 },
+      { label: 'After SIP',  data: after,  backgroundColor: '#1B5E20', borderRadius: 3 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmtM(ctx.raw) } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tc, font: { size: 10 } } },
+        y: { grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: { size: 10 }, callback: v => fmtM(v) } }
+      }
+    }
+  });
+
+  cBreak = new Chart(document.getElementById('c-breakdown'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Proofing cycles','Waste material','Shade card reuse','Cycle efficiency'],
+      datasets: [{ data: [
+        Math.round(c.proofSav*12), Math.round(c.wasteSav*12),
+        Math.round(c.shadeSav*12), Math.round(c.cycleEff*12),
+      ], backgroundColor: ['#C55A00','#4527A0','#880E4F','#01579B'], borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) } } }
+    }
+  });
+
+  const npvPts = []; let cum = -v.capex;
+  for (let yr = 1; yr <= 5; yr++) { cum += (c.annualSav - ANNUAL_OPEX) / Math.pow(1+v.discount, yr); npvPts.push(+(cum/1e6).toFixed(1)); }
+
+  cNPV = new Chart(document.getElementById('c-npv'), {
+    type: 'line',
+    data: {
+      labels: ['Year 1','Year 2','Year 3','Year 4','Year 5'],
+      datasets: [
+        { label: 'Cumulative NPV', data: npvPts, borderColor: '#01579B', backgroundColor: 'rgba(1,87,155,0.08)', tension: 0.35, pointRadius: 5, pointBackgroundColor: '#01579B', borderWidth: 2, fill: true },
+        { label: 'Break-even', data: [0,0,0,0,0], borderColor: '#B71C1C', borderDash: [5,4], borderWidth: 1, pointRadius: 0, fill: false },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.datasetIndex === 0 ? 'NPV: Rs. ' + ctx.raw + 'M' : '' } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tc, font: { size: 10 } } },
+        y: { grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: { size: 10 }, callback: v => 'Rs.' + v + 'M' }, afterDataLimits: a => { a.min = Math.min(a.min, -25); } }
+      }
+    }
+  });
+}
+
+function updateAll() {
+  const v = getVals(); const c = compute(v);
+
+  // Labels
+  document.getElementById('v-capex').textContent    = 'Rs. ' + (v.capex/1e6).toFixed(1) + 'M';
+  document.getElementById('v-adoption').textContent = Math.round(v.adoption*100) + '%';
+  document.getElementById('v-proof').textContent    = Math.round(v.proof*100) + '%';
+  document.getElementById('v-waste').textContent    = Math.round(v.waste*100) + '%';
+  document.getElementById('v-cycle').textContent    = Math.round(v.cycle) + ' days';
+  document.getElementById('v-growth').textContent   = (v.growth>=0?'+':'') + Math.round(v.growth*100) + '%';
+  document.getElementById('v-shade').textContent    = Math.round(v.shade*100) + '%';
+  document.getElementById('v-discount').textContent = Math.round(v.discount*100) + '%';
+
+  // Metrics
+  document.getElementById('o-monthly').textContent = fmtM(c.monthlySav);
+  document.getElementById('o-annual').textContent  = fmtM(c.annualSav);
+  const pb = c.paybackMo;
+  document.getElementById('o-payback').textContent = pb < 12 ? Math.round(pb) + ' mo' : (pb/12).toFixed(1) + ' yrs';
+  const npvM = c.npv/1e6;
+  document.getElementById('o-npv').textContent     = (npvM>=0?'+':'') + 'Rs.' + Math.abs(npvM).toFixed(0) + 'M';
+  document.getElementById('o-npv-sub').textContent = npvM >= 0 ? 'Positive — invest' : 'Negative — adjust inputs';
+  const npvCard = document.getElementById('m-npv');
+  npvCard.className = 'metric ' + (npvM >= 0 ? 'm-good' : 'm-warn');
+  document.getElementById('o-npv').style.color = npvM >= 0 ? 'var(--teal)' : 'var(--red)';
+  document.getElementById('o-cycle').textContent = c.newCycle + ' days';
+  document.getElementById('o-waste').textContent = Math.round(c.wasteKgSaved).toLocaleString() + ' KG';
+
+  // Charts
+  const before = Array(12).fill(Math.round(c.adjBase));
+  const after  = MONTHS.map((_,i) => i < 3 ? Math.round(c.adjBase) : Math.round(c.adjBase - c.monthlySav * Math.min(1,(i-2)/4)));
+  cMonthly.data.datasets[0].data = before;
+  cMonthly.data.datasets[1].data = after;
+  cMonthly.update('none');
+
+  cBreak.data.datasets[0].data = [
+    Math.round(c.proofSav*12), Math.round(c.wasteSav*12),
+    Math.round(c.shadeSav*12), Math.round(c.cycleEff*12),
+  ];
+  cBreak.update('none');
+
+  const npvPts = []; let cum = -v.capex;
+  for (let yr = 1; yr <= 5; yr++) { cum += (c.annualSav - ANNUAL_OPEX)/Math.pow(1+v.discount,yr); npvPts.push(+(cum/1e6).toFixed(1)); }
+  cNPV.data.datasets[0].data = npvPts;
+  cNPV.update('none');
+
+  // Insights
+  const pills = [];
+  if (npvM > 0) pills.push({ cls: 'ins-good', t: '5-yr NPV positive at Rs.' + Math.abs(npvM).toFixed(0) + 'M' });
+  else           pills.push({ cls: 'ins-warn', t: 'NPV negative — increase adoption or reduce CapEx' });
+  if (pb < 6)   pills.push({ cls: 'ins-good', t: 'Payback in ' + Math.round(pb) + ' months — fastest in CPL capex portfolio' });
+  else if (pb < 60) pills.push({ cls: 'ins-info', t: 'Payback ' + Math.round(pb) + ' months — within CFO threshold' });
+  else           pills.push({ cls: 'ins-warn', t: 'Payback exceeds 5 years — revisit settings' });
+  if (v.adoption < 0.4) pills.push({ cls: 'ins-warn', t: 'Low adoption (' + Math.round(v.adoption*100) + '%) — onboard top 10 clients first (49% of spend)' });
+  if (c.newCycle <= 30) pills.push({ cls: 'ins-good', t: 'Cycle ' + c.newCycle + ' days — faster than competitor benchmark' });
+  if (c.proofSav*12 > c.wasteSav*12*1.5) pills.push({ cls: 'ins-info', t: 'Proofing reduction is dominant saving lever (56.8% of cost)' });
+  document.getElementById('insights-list').innerHTML = pills.map(p => '<span class="ins-pill ' + p.cls + '">' + p.t + '</span>').join('');
+}
+
+document.querySelectorAll('input[type=range]').forEach(el => el.addEventListener('input', updateAll));
+buildCharts();
+updateAll();
+</script>
+</body>
+</html>
